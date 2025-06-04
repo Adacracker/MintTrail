@@ -12,7 +12,7 @@ const BLOCKFROST_BASE_URL = 'https://cardano-mainnet.blockfrost.io/api/v0';
 
 // Middleware
 app.use(cors({
-    origin: ['https://your-domain.com', 'http://localhost:3000', 'https://localhost:3000'],
+    origin: ['https://your-domain.com', 'https://mint-trail.vercel.app/api/mint', 'https://mint-trail.vercel.app/api/mint'],
     credentials: true
 }));
 app.use(express.json());
