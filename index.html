@@ -626,16 +626,29 @@
             }
         }
 
+        // Production API Configuration
+        const API_CONFIG = {
+            // Replace this with your actual Vercel deployment URL
+            BACKEND_URL: window.location.hostname === 'localhost' 
+                ? 'http://localhost:3001'  // Development
+                : 'https://minttrail-api.vercel.app',  // Production - UPDATE THIS!
+            
+            // Health check
+            async checkHealth() {
+                try {
+                    const response = await fetch(`${this.BACKEND_URL}/api/health`);
+                    return response.ok;
+                } catch (e) {
+                    return false;
+                }
+            }
+        };
+
         async function traceToken(tokenName) {
             try {
                 console.log(`🧭 Sending request to backend: ${tokenName}`);
                 
-                // Use different API URL for production vs development
-                const apiUrl = window.location.hostname === 'localhost' 
-                    ? '/api/trace-token'  // Development
-                    : 'https://your-backend-url.com/api/trace-token';  // Production
-                
-                const response = await fetch(apiUrl, {
+                const response = await fetch(`${API_CONFIG.BACKEND_URL}/api/trace-token`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -644,8 +657,14 @@
                 });
 
                 if (!response.ok) {
-                    const errorData = await response.json();
-                    throw new Error(errorData.error || `HTTP ${response.status}`);
+                    if (response.status === 404) {
+                        throw new Error('Backend server not found - please check if the API is deployed');
+                    }
+                    if (response.status === 429) {
+                        throw new Error('Rate limit exceeded - please wait a moment and try again');
+                    }
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
                 }
 
                 const data = await response.json();
@@ -654,6 +673,11 @@
 
             } catch (error) {
                 console.error('Backend request failed:', error);
+                
+                if (error.message.includes('fetch')) {
+                    throw new Error('Unable to connect to backend API. Please check your internet connection or try again later.');
+                }
+                
                 throw error;
             }
         }
@@ -689,12 +713,7 @@
                 
                 console.log(`📡 Calling /api/detect-bundles with policy ID: ${policyId}`);
                 
-                // Use different API URL for production vs development
-                const apiUrl = window.location.hostname === 'localhost' 
-                    ? '/api/detect-bundles'  // Development
-                    : 'https://your-backend-url.com/api/detect-bundles';  // Production
-                
-                const response = await fetch(apiUrl, {
+                const response = await fetch(`${API_CONFIG.BACKEND_URL}/api/detect-bundles`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -705,6 +724,9 @@
                 console.log(`📨 Bundle API response status: ${response.status}`);
 
                 if (!response.ok) {
+                    if (response.status === 429) {
+                        throw new Error('Rate limit exceeded - please wait a moment and try again');
+                    }
                     const errorText = await response.text();
                     console.error(`❌ Bundle API error: ${response.status} - ${errorText}`);
                     throw new Error(`Bundle API Error: ${response.status} - ${errorText}`);
